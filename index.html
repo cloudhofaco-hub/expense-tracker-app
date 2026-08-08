@@ -410,7 +410,8 @@
       // Telegram user info, available once this runs inside Telegram
       user: tg && tg.initDataUnsafe && tg.initDataUnsafe.user
         ? (tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || ('id:' + tg.initDataUnsafe.user.id))
-        : null
+        : null,
+      initData: tg ? tg.initData : ''
     };
 
     submitBtn.disabled = true;
