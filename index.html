@@ -433,7 +433,6 @@
 
       if (tg) {
         tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
-        setTimeout(() => tg.close(), 900);
       }
     } catch (err) {
       statusEl.textContent = 'Could not save, try again';
