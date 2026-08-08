@@ -334,7 +334,8 @@
     catsEl.innerHTML = '';
 
     try {
-      const res = await fetch(BACKEND_URL);
+      const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : '';
+      const res = await fetch(BACKEND_URL + '?userId=' + userId);
       const data = await res.json();
       const entries = data.entries || [];
 
@@ -411,6 +412,7 @@
       user: tg && tg.initDataUnsafe && tg.initDataUnsafe.user
         ? (tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || ('id:' + tg.initDataUnsafe.user.id))
         : null,
+      userId: tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null,
       initData: tg ? tg.initData : ''
     };
 
