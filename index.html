@@ -408,7 +408,9 @@
       date: document.getElementById('date').value,
       note: document.getElementById('note').value,
       // Telegram user info, available once this runs inside Telegram
-      user: tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null
+      user: tg && tg.initDataUnsafe && tg.initDataUnsafe.user
+        ? (tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || ('id:' + tg.initDataUnsafe.user.id))
+        : null
     };
 
     submitBtn.disabled = true;
