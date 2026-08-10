@@ -19,6 +19,11 @@
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
+  html {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar { display: none; }
   body {
     margin: 0;
     background: var(--paper);
@@ -28,7 +33,10 @@
     display: flex;
     justify-content: center;
     padding: 24px 16px 100px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
+  body::-webkit-scrollbar { display: none; }
   .receipt {
     width: 100%;
     max-width: 420px;
@@ -374,6 +382,89 @@
   }
   .debt-bar-fill { background: var(--stamp) !important; }
   .debt-card-top .nums.cleared { color: var(--ok); }
+  .debt-payment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .debt-payment-row1, .debt-payment-row2 {
+    display: flex;
+    gap: 8px;
+  }
+  .debt-payment-row1 input,
+  .debt-payment-row2 select {
+    flex: 1;
+    height: 38px;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: var(--paper);
+    outline: none;
+    color: var(--ink);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .debt-payment-row2 select {
+    font-family: var(--sans);
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F6B5C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+    padding-right: 28px;
+  }
+  .debt-payment-row2 button {
+    height: 38px;
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .debt-pay-note {
+    height: 38px;
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: var(--paper);
+    outline: none;
+    width: 100%;
+  }
+  .debt-date-taken {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .debt-history {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--paper-line);
+    display: none;
+  }
+  .debt-history.expanded { display: block; }
+  .debt-card-top .name {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .debt-card-top .name .chevron {
+    font-size: 10px;
+    color: var(--ink-soft);
+    transition: transform 0.15s;
+  }
+  .debt-card-top .name.expanded .chevron {
+    transform: rotate(90deg);
+  }
   .amount-block {
     text-align: center;
     padding: 20px 0 24px;
@@ -485,12 +576,7 @@
 </head>
 <body>
 <div class="receipt">
-  <div class="perforation">
-    <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-  </div>
-
   <header>
-    <div class="label">Monthly expense log</div>
     <h1 id="page-title">Daily log</h1>
   </header>
 
@@ -601,13 +687,14 @@
     <div class="new-goal-form">
       <input type="text" id="new-debt-name" placeholder="Who / what, e.g. Car loan">
       <input type="number" id="new-debt-total" step="0.01" min="0" placeholder="Total owed">
+      <label class="field-label" style="margin-bottom:-2px">Date taken</label>
+      <input type="date" id="new-debt-date">
       <button type="button" class="submit-btn" id="add-debt-btn">Add debt</button>
     </div>
     <div id="debts-list"></div>
     <div class="status" id="debts-status"></div>
   </div>
 
-  <footer>— keep every receipt —</footer>
 </div>
 
 <nav class="bottom-nav">
@@ -649,6 +736,7 @@
   dateInput.valueAsDate = new Date();
 
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbytwQbZdmNzOYcKcv6JkRfuBNAAKltXhEz2NcIR5xXchdh01ZbFZW4HbA0fYK9UsklsMQ/exec';
+
 
   // Tab switching
   const pageTitle = document.getElementById('page-title');
@@ -1113,37 +1201,95 @@
     const listEl = document.getElementById('debts-list');
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
-      let debts;
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=debts&userId=' + userId);
-      const data = await res.json();
-      debts = data.debts || [];
+      const [debtsRes, paymentsRes] = await Promise.all([
+        fetch(BACKEND_URL + '?resource=debts&userId=' + userId),
+        fetch(BACKEND_URL + '?resource=debtPayments&userId=' + userId)
+      ]);
+      const debtsData = await debtsRes.json();
+      const paymentsData = await paymentsRes.json();
+      const debts = debtsData.debts || [];
+      const allPayments = paymentsData.debtPayments || [];
+
+      debts.forEach(d => {
+        d.payments = allPayments
+          .filter(p => p.debtName === d.name)
+          .map(p => ({ amount: p.amount, date: p.date, expenseType: p.expenseType, note: p.note }));
+      });
 
       if (debts.length === 0) {
         listEl.innerHTML = '<div class="empty-note">No debts tracked — add one above</div>';
         return;
       }
 
+      const typeOptions = ['Cash', 'ABA', 'Wing', 'Acleda', 'PPC', 'Other'];
+      const today = new Date().toISOString().split('T')[0];
+
       listEl.innerHTML = debts.map(d => {
-        const remaining = Math.max(0, d.total - d.paid);
-        const pct = d.total > 0 ? Math.min(100, Math.round((d.paid / d.total) * 100)) : 0;
+        const paid = d.paid || 0;
+        const remaining = Math.max(0, d.total - paid);
+        const pct = d.total > 0 ? Math.min(100, Math.round((paid / d.total) * 100)) : 0;
         const cleared = remaining <= 0 && d.total > 0;
+        const payments = (d.payments || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const historyHtml = payments.length
+          ? payments.map(p =>
+              '<div class="day-entry"><span>' + new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+              (p.expenseType ? ' · ' + p.expenseType : '') + (p.note ? ' — ' + p.note : '') + '</span><span class="amt">$' + p.amount.toFixed(2) + '</span></div>'
+            ).join('')
+          : '<div class="empty-note">No payments logged yet</div>';
+
+        const dateTakenLabel = d.dateTaken
+          ? 'Taken ' + new Date(d.dateTaken).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '';
+
         return '<div class="goal-card">' +
-          '<div class="goal-card-top debt-card-top"><span class="name">' + d.name + (cleared ? ' ✓' : '') +
-          '<button type="button" class="goal-delete-btn" data-debt="' + d.name + '" title="Delete debt">×</button></span>' +
-          '<span class="nums' + (cleared ? ' cleared' : '') + '">' + (cleared ? 'Cleared' : '$' + remaining.toFixed(2) + ' left') + '</span></div>' +
+          '<div class="goal-card-top debt-card-top">' +
+          '<span class="name" data-debt-toggle="' + d.name + '"><span class="chevron">▸</span>' + d.name + (cleared ? ' ✓' : '') +
+          ' <span style="font-weight:400;color:var(--ink-soft);font-size:11px">(' + payments.length + ')</span></span>' +
+          '<button type="button" class="goal-delete-btn" data-debt="' + d.name + '" title="Delete debt">×</button></div>' +
+          (dateTakenLabel ? '<div class="debt-date-taken">' + dateTakenLabel + '</div>' : '') +
+          '<div class="nums' + (cleared ? ' cleared' : '') + '" style="margin-bottom:8px">' + (cleared ? 'Cleared' : '$' + remaining.toFixed(2) + ' left') + '</div>' +
           '<div class="goal-bar-track"><div class="goal-bar-fill debt-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="goal-contribute">' +
-          '<input type="number" step="0.01" min="0" placeholder="Log payment" data-debt="' + d.name + '">' +
-          '<button type="button" class="debt-pay-btn" data-debt="' + d.name + '">Pay</button>' +
-          '</div></div>';
+          '<div class="debt-payment-form">' +
+          '<div class="debt-payment-row1">' +
+          '<input type="number" step="0.01" min="0" placeholder="Amount" class="debt-pay-amount" data-debt="' + d.name + '">' +
+          '<input type="date" class="debt-pay-date" data-debt="' + d.name + '" value="' + today + '">' +
+          '</div>' +
+          '<div class="debt-payment-row2">' +
+          '<select class="debt-pay-type" data-debt="' + d.name + '">' +
+          typeOptions.map(t => '<option value="' + t + '">' + t + '</option>').join('') +
+          '</select>' +
+          '<button type="button" class="debt-pay-btn" data-debt="' + d.name + '">Log payment</button>' +
+          '</div>' +
+          '<input type="text" class="debt-pay-note" data-debt="' + d.name + '" placeholder="Note (optional)">' +
+          '</div>' +
+          '<div class="debt-history" data-debt-history="' + d.name + '">' + historyHtml + '</div>' +
+          '</div>';
       }).join('');
+
+      listEl.querySelectorAll('[data-debt-toggle]').forEach(nameEl => {
+        nameEl.addEventListener('click', () => {
+          const debtName = nameEl.dataset.debtToggle;
+          const historyEl = listEl.querySelector('[data-debt-history="' + debtName + '"]');
+          const isExpanded = historyEl.classList.toggle('expanded');
+          nameEl.classList.toggle('expanded', isExpanded);
+        });
+      });
 
       listEl.querySelectorAll('.debt-pay-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const input = listEl.querySelector('input[data-debt="' + btn.dataset.debt + '"]');
-          const amount = parseFloat(input.value);
+          const name = btn.dataset.debt;
+          const amountInput = listEl.querySelector('.debt-pay-amount[data-debt="' + name + '"]');
+          const dateInput = listEl.querySelector('.debt-pay-date[data-debt="' + name + '"]');
+          const typeInput = listEl.querySelector('.debt-pay-type[data-debt="' + name + '"]');
+          const noteInput = listEl.querySelector('.debt-pay-note[data-debt="' + name + '"]');
+          const amount = parseFloat(amountInput.value);
+          const date = dateInput.value;
+          const expenseType = typeInput.value;
+          const note = noteInput.value.trim();
           if (!amount || amount <= 0) return;
+
           btn.disabled = true;
           try {
             await fetch(BACKEND_URL, {
@@ -1151,8 +1297,11 @@
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
                 type: 'debt_payment',
-                name: btn.dataset.debt,
+                name: name,
                 amount: amount,
+                date: date,
+                expenseType: expenseType,
+                note: note,
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
@@ -1190,12 +1339,16 @@
     }
   }
 
+  document.getElementById('new-debt-date').valueAsDate = new Date();
+
   document.getElementById('add-debt-btn').addEventListener('click', async () => {
     const nameInput = document.getElementById('new-debt-name');
     const totalInput = document.getElementById('new-debt-total');
+    const dateInput = document.getElementById('new-debt-date');
     const statusEl = document.getElementById('debts-status');
     const name = nameInput.value.trim();
     const total = parseFloat(totalInput.value);
+    const dateTaken = dateInput.value;
 
     if (!name || !total || total <= 0) {
       statusEl.textContent = 'Enter a name and total owed';
@@ -1213,6 +1366,7 @@
           type: 'debt_create',
           name: name,
           total: total,
+          dateTaken: dateTaken,
           userId: getUserId(),
           initData: tg ? tg.initData : ''
         })
@@ -1226,6 +1380,9 @@
       statusEl.classList.add('error');
     }
   });
+
+  // Preview: jump straight to Debts tab so the new feature is visible right away
+  document.querySelector('[data-tab="debts"]').click();
 
   let selectedCategory = null;
   document.querySelectorAll('#categories .cat-btn').forEach(btn => {
