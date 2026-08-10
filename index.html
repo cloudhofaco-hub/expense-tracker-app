@@ -27,7 +27,7 @@
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    padding: 24px 16px 60px;
+    padding: 24px 16px 100px;
   }
   .receipt {
     width: 100%;
@@ -61,28 +61,46 @@
     font-weight: 600;
     margin: 0;
   }
-  .tabs {
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
-    gap: 8px;
-    margin-bottom: 24px;
+    background: var(--paper);
+    border-top: 1px solid var(--paper-line);
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 100;
   }
   .tab-btn {
     flex: 1;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 10px;
-    border-radius: var(--radius);
-    border: 1px solid var(--paper-line);
-    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    padding: 4px 2px;
     color: var(--ink-soft);
     cursor: pointer;
+    font-family: var(--sans);
+  }
+  .tab-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .tab-btn span {
+    font-size: 10px;
+    font-weight: 500;
   }
   .tab-btn.active {
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--paper);
+    color: var(--stamp);
   }
   .view { display: none; }
   .view.active { display: block; }
@@ -100,6 +118,14 @@
   }
   .cat-row {
     margin-bottom: 14px;
+    padding: 8px;
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 8px;
+    transition: background 0.15s;
+  }
+  .cat-row.selected {
+    background: var(--stamp-soft);
   }
   .cat-row-top {
     display: flex;
@@ -125,6 +151,229 @@
     color: var(--ink-soft);
     padding: 20px 0;
   }
+  .budget-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .budget-row label {
+    flex: 0 0 90px;
+    font-size: 13px;
+  }
+  .budget-row input {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 9px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    color: var(--ink);
+    outline: none;
+  }
+  .budget-row input:focus { border-color: var(--stamp); }
+  .cat-bar-fill.over { background: var(--stamp) !important; }
+  .cat-row-top .amt.over { color: var(--stamp); font-weight: 700; }
+  .cal-month-label {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+  .cal-dow {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    padding-bottom: 4px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    cursor: pointer;
+    padding: 2px;
+  }
+  .cal-day.empty { visibility: hidden; cursor: default; }
+  .cal-day.has-spend { background: var(--stamp-soft); border-color: var(--stamp-soft); }
+  .cal-day.selected { border-color: var(--ink); border-width: 2px; }
+  .cal-day .num { font-size: 12px; font-weight: 600; }
+  .cal-day .amt { font-family: var(--mono); font-size: 9px; color: var(--stamp); margin-top: 2px; }
+  .day-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--paper-line);
+    font-size: 13px;
+  }
+  .day-entry:last-child { border-bottom: none; }
+  .day-entry .amt { font-family: var(--mono); color: var(--ink-soft); }
+  .cal-subtabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .cal-subtab-btn {
+    flex: 1;
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 7px;
+    border-radius: 20px;
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .cal-subtab-btn.active {
+    background: var(--stamp);
+    border-color: var(--stamp);
+    color: #fff;
+  }
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .cal-nav-btn {
+    font-family: var(--mono);
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .cal-nav .cal-month-label { margin: 0; flex: 1; }
+  .cal-week-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 10px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .cal-week-row.has-spend { background: var(--stamp-soft); border-color: var(--stamp-soft); }
+  .cal-week-row.selected { border-color: var(--ink); border-width: 2px; }
+  .cal-week-row .dow { font-size: 12px; color: var(--ink-soft); width: 60px; }
+  .cal-week-row .amt { font-family: var(--mono); font-size: 13px; }
+  .cal-year-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .cal-year-cell {
+    padding: 16px 8px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    text-align: center;
+    cursor: pointer;
+  }
+  .cal-year-cell.has-spend { background: var(--stamp-soft); border-color: var(--stamp-soft); }
+  .cal-year-cell .mon { font-size: 13px; font-weight: 600; }
+  .cal-year-cell .amt { font-family: var(--mono); font-size: 11px; color: var(--stamp); margin-top: 4px; display: block; }
+  .goal-card {
+    padding: 16px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    margin-bottom: 14px;
+  }
+  .goal-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .goal-card-top .name { font-size: 14px; font-weight: 600; }
+  .goal-card-top .nums { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .goal-delete-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 0 0 8px;
+    line-height: 1;
+  }
+  .goal-delete-btn:hover { color: var(--stamp); }
+  .goal-bar-track {
+    height: 8px;
+    background: var(--stamp-soft);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .goal-bar-fill {
+    height: 100%;
+    background: var(--ok);
+    border-radius: 4px;
+  }
+  .goal-contribute {
+    display: flex;
+    gap: 8px;
+  }
+  .goal-contribute input {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: var(--paper);
+    outline: none;
+  }
+  .goal-contribute button {
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+  }
+  .new-goal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px dashed var(--paper-line);
+    margin-bottom: 18px;
+  }
+  .new-goal-form input {
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    outline: none;
+  }
+  .debt-bar-fill { background: var(--stamp) !important; }
+  .debt-card-top .nums.cleared { color: var(--ok); }
   .amount-block {
     text-align: center;
     padding: 20px 0 24px;
@@ -162,13 +411,15 @@
   }
   .categories {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
   .cat-btn {
     font-family: var(--sans);
-    font-size: 13px;
-    padding: 10px 6px;
+    font-size: 12.5px;
+    line-height: 1.3;
+    padding: 10px 8px;
+    text-align: left;
     border-radius: var(--radius);
     border: 1px solid var(--paper-line);
     background: #fff;
@@ -240,13 +491,8 @@
 
   <header>
     <div class="label">Monthly expense log</div>
-    <h1 id="page-title">Add an entry</h1>
+    <h1 id="page-title">Daily log</h1>
   </header>
-
-  <div class="tabs">
-    <button type="button" class="tab-btn active" data-tab="add">Add</button>
-    <button type="button" class="tab-btn" data-tab="summary">Summary</button>
-  </div>
 
   <div class="view active" id="view-add">
   <form id="expense-form">
@@ -257,12 +503,30 @@
     <div class="field">
       <span class="field-label">Category</span>
       <div class="categories" id="categories">
-        <button type="button" class="cat-btn" data-cat="Food">Food</button>
-        <button type="button" class="cat-btn" data-cat="Transport">Transport</button>
-        <button type="button" class="cat-btn" data-cat="Bills">Bills</button>
-        <button type="button" class="cat-btn" data-cat="Shopping">Shopping</button>
-        <button type="button" class="cat-btn" data-cat="Health">Health</button>
-        <button type="button" class="cat-btn" data-cat="Other">Other</button>
+        <button type="button" class="cat-btn" data-cat="Food & Groceries">🍚 Food & Groceries</button>
+        <button type="button" class="cat-btn" data-cat="Eating Out">🍔 Eating Out</button>
+        <button type="button" class="cat-btn" data-cat="Rent/Housing">🏠 Rent/Housing</button>
+        <button type="button" class="cat-btn" data-cat="Utilities">💡 Utilities</button>
+        <button type="button" class="cat-btn" data-cat="Phone & Internet">📱 Phone & Internet</button>
+        <button type="button" class="cat-btn" data-cat="Transportation">🚗 Transportation</button>
+        <button type="button" class="cat-btn" data-cat="Household">🛒 Household</button>
+        <button type="button" class="cat-btn" data-cat="Personal Care">🧴 Personal Care</button>
+        <button type="button" class="cat-btn" data-cat="Education">🎓 Education</button>
+        <button type="button" class="cat-btn" data-cat="Family">👨‍👩‍👧 Family</button>
+        <button type="button" class="cat-btn" data-cat="Financial">🏦 Financial</button>
+        <button type="button" class="cat-btn" data-cat="Other">📦 Other</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Expense type</span>
+      <div class="categories" id="expense-types">
+        <button type="button" class="cat-btn" data-type="Cash">Cash</button>
+        <button type="button" class="cat-btn" data-type="ABA">ABA</button>
+        <button type="button" class="cat-btn" data-type="Wing">Wing</button>
+        <button type="button" class="cat-btn" data-type="Acleda">Acleda</button>
+        <button type="button" class="cat-btn" data-type="PPC">PPC</button>
+        <button type="button" class="cat-btn" data-type="Other">Other</button>
       </div>
     </div>
 
@@ -290,10 +554,88 @@
       <span class="field-label">By category</span>
       <div id="summary-categories"></div>
     </div>
+    <div class="field">
+      <span class="field-label" id="summary-cat-label">Tap a category to see entries</span>
+      <div id="summary-cat-entries"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-budgets">
+    <div class="field">
+      <span class="field-label">Monthly limit per category</span>
+      <div id="budget-inputs"></div>
+      <button type="button" class="submit-btn" id="save-budgets-btn">Save limits</button>
+      <div class="status" id="budget-status"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-calendar">
+    <div class="cal-subtabs">
+      <button type="button" class="cal-subtab-btn" data-mode="week">Week</button>
+      <button type="button" class="cal-subtab-btn active" data-mode="month">Month</button>
+      <button type="button" class="cal-subtab-btn" data-mode="year">Year</button>
+    </div>
+    <div class="cal-nav">
+      <button type="button" class="cal-nav-btn" id="cal-prev">‹</button>
+      <div class="cal-month-label" id="cal-period-label"></div>
+      <button type="button" class="cal-nav-btn" id="cal-next">›</button>
+    </div>
+    <div id="cal-body"></div>
+    <div class="field">
+      <span class="field-label" id="cal-day-label">Tap a day to see entries</span>
+      <div id="cal-day-entries"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-goals">
+    <div class="new-goal-form">
+      <input type="text" id="new-goal-name" placeholder="Goal name, e.g. Trip to Japan">
+      <input type="number" id="new-goal-target" step="0.01" min="0" placeholder="Target amount">
+      <button type="button" class="submit-btn" id="add-goal-btn">Add goal</button>
+    </div>
+    <div id="goals-list"></div>
+    <div class="status" id="goals-status"></div>
+  </div>
+
+  <div class="view" id="view-debts">
+    <div class="new-goal-form">
+      <input type="text" id="new-debt-name" placeholder="Who / what, e.g. Car loan">
+      <input type="number" id="new-debt-total" step="0.01" min="0" placeholder="Total owed">
+      <button type="button" class="submit-btn" id="add-debt-btn">Add debt</button>
+    </div>
+    <div id="debts-list"></div>
+    <div class="status" id="debts-status"></div>
   </div>
 
   <footer>— keep every receipt —</footer>
 </div>
+
+<nav class="bottom-nav">
+  <button type="button" class="tab-btn active" data-tab="add">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>Daily</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="summary">
+    <svg viewBox="0 0 24 24"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="15"/></svg>
+    <span>Summary</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="budgets">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
+    <span>Budgets</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="calendar">
+    <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+    <span>Calendar</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="goals">
+    <svg viewBox="0 0 24 24"><line x1="6" y1="21" x2="6" y2="4"/><path d="M6 4h13l-3 4 3 4H6"/></svg>
+    <span>Goals</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="debts">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+    <span>Debts</span>
+  </button>
+</nav>
 
 <script>
   // Telegram Mini App setup (safe no-op if opened outside Telegram)
@@ -319,31 +661,72 @@
       if (btn.dataset.tab === 'summary') {
         pageTitle.textContent = 'This month';
         loadSummary();
+      } else if (btn.dataset.tab === 'budgets') {
+        pageTitle.textContent = 'Set your limits';
+        loadBudgetInputs();
+      } else if (btn.dataset.tab === 'calendar') {
+        pageTitle.textContent = 'Calendar';
+        loadCalendar();
+      } else if (btn.dataset.tab === 'goals') {
+        pageTitle.textContent = 'Saving goals';
+        loadGoals();
+      } else if (btn.dataset.tab === 'debts') {
+        pageTitle.textContent = 'Debts';
+        loadDebts();
       } else {
-        pageTitle.textContent = 'Add an entry';
+        pageTitle.textContent = 'Daily log';
       }
     });
   });
 
-  const CATEGORY_COLORS = { Food: '#C4482E', Transport: '#4B6B4E', Bills: '#6F6B5C', Shopping: '#2B2A25', Health: '#8A6D3B', Other: '#A88F7A' };
+  const CATEGORY_LIST = ['Food & Groceries', 'Eating Out', 'Rent/Housing', 'Utilities', 'Phone & Internet', 'Transportation', 'Household', 'Personal Care', 'Education', 'Family', 'Financial', 'Other'];
+  const CATEGORY_COLORS = {
+    'Food & Groceries': '#C4482E',
+    'Eating Out': '#D97B4F',
+    'Rent/Housing': '#5C4A72',
+    'Utilities': '#8A6D3B',
+    'Phone & Internet': '#3C6E71',
+    'Transportation': '#4B6B4E',
+    'Household': '#6F6B5C',
+    'Personal Care': '#5E7A63',
+    'Education': '#2E5266',
+    'Family': '#8E5572',
+    'Financial': '#2B2A25',
+    'Other': '#A88F7A'
+  };
+
+  function getUserId() {
+    return tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : '';
+  }
+
+  let summaryMonthEntries = [];
 
   async function loadSummary() {
     const totalEl = document.getElementById('summary-total');
     const catsEl = document.getElementById('summary-categories');
     totalEl.textContent = 'Loading...';
     catsEl.innerHTML = '';
+    document.getElementById('summary-cat-entries').innerHTML = '';
+    document.getElementById('summary-cat-label').textContent = 'Tap a category to see entries';
 
     try {
-      const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : '';
-      const res = await fetch(BACKEND_URL + '?userId=' + userId);
-      const data = await res.json();
-      const entries = data.entries || [];
+      let entries, budgets = {};
+      const userId = getUserId();
+      const [entriesRes, budgetsRes] = await Promise.all([
+        fetch(BACKEND_URL + '?userId=' + userId),
+        fetch(BACKEND_URL + '?resource=budgets&userId=' + userId)
+      ]);
+      const data = await entriesRes.json();
+      const budgetData = await budgetsRes.json();
+      entries = data.entries || [];
+      (budgetData.budgets || []).forEach(b => { budgets[b.category] = b.limit; });
 
       const now = new Date();
       const thisMonth = entries.filter(en => {
         const d = new Date(en.date);
         return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
       });
+      summaryMonthEntries = thisMonth;
 
       const total = thisMonth.reduce((sum, en) => sum + (en.amount || 0), 0);
       totalEl.textContent = '$' + total.toFixed(2);
@@ -360,25 +743,505 @@
 
       const sorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
       catsEl.innerHTML = sorted.map(([cat, amt]) => {
-        const pct = total > 0 ? Math.round((amt / total) * 100) : 0;
+        const limit = budgets[cat];
         const color = CATEGORY_COLORS[cat] || 'var(--stamp)';
-        return '<div class="cat-row">' +
-          '<div class="cat-row-top"><span>' + cat + '</span><span class="amt">$' + amt.toFixed(2) + '</span></div>' +
-          '<div class="cat-bar-track"><div class="cat-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+        const isOver = limit && amt > limit;
+        const pct = limit ? Math.min(100, Math.round((amt / limit) * 100)) : (total > 0 ? Math.round((amt / total) * 100) : 0);
+        const rightLabel = limit ? ('$' + amt.toFixed(2) + ' / $' + limit.toFixed(2)) : ('$' + amt.toFixed(2));
+        return '<div class="cat-row" data-cat="' + cat + '" style="cursor:pointer">' +
+          '<div class="cat-row-top"><span>' + cat + '</span><span class="amt' + (isOver ? ' over' : '') + '">' + rightLabel + '</span></div>' +
+          '<div class="cat-bar-track"><div class="cat-bar-fill' + (isOver ? ' over' : '') + '" style="width:' + pct + '%;' + (isOver ? '' : 'background:' + color) + '"></div></div>' +
           '</div>';
       }).join('');
+
+      catsEl.querySelectorAll('.cat-row').forEach(row => {
+        row.addEventListener('click', () => {
+          catsEl.querySelectorAll('.cat-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          showCategoryEntries(row.dataset.cat);
+        });
+      });
     } catch (err) {
       totalEl.textContent = '$0.00';
       catsEl.innerHTML = '<div class="empty-note">Could not load data</div>';
     }
   }
 
-  let selectedCategory = null;
-  document.querySelectorAll('.cat-btn').forEach(btn => {
+  function showCategoryEntries(cat) {
+    const label = document.getElementById('summary-cat-label');
+    const listEl = document.getElementById('summary-cat-entries');
+    const catEntries = summaryMonthEntries.filter(en => en.category === cat);
+
+    label.textContent = cat + ' this month';
+
+    if (catEntries.length === 0) {
+      listEl.innerHTML = '<div class="empty-note">No entries</div>';
+      return;
+    }
+    listEl.innerHTML = catEntries
+      .slice()
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map(en =>
+        '<div class="day-entry"><span>' + new Date(en.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        (en.expenseType ? ' · ' + en.expenseType : '') + (en.note ? ' — ' + en.note : '') +
+        '</span><span class="amt">$' + en.amount.toFixed(2) + '</span></div>'
+      ).join('');
+  }
+
+  async function loadBudgetInputs() {
+    const container = document.getElementById('budget-inputs');
+    container.innerHTML = '<div class="empty-note">Loading...</div>';
+    try {
+      const existing = {};
+      const userId = getUserId();
+      const res = await fetch(BACKEND_URL + '?resource=budgets&userId=' + userId);
+      const data = await res.json();
+      (data.budgets || []).forEach(b => { existing[b.category] = b.limit; });
+
+      container.innerHTML = CATEGORY_LIST.map(cat => {
+        const val = existing[cat] || '';
+        return '<div class="budget-row"><label>' + cat + '</label>' +
+          '<input type="number" step="0.01" min="0" placeholder="No limit" data-cat="' + cat + '" value="' + val + '"></div>';
+      }).join('');
+    } catch (err) {
+      container.innerHTML = '<div class="empty-note">Could not load budgets</div>';
+    }
+  }
+
+  document.getElementById('save-budgets-btn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('budget-status');
+    const inputs = document.querySelectorAll('#budget-inputs input');
+    const userId = getUserId();
+    statusEl.textContent = 'Saving...';
+    statusEl.classList.remove('error');
+
+    try {
+      for (const input of inputs) {
+        const limit = parseFloat(input.value);
+        if (!limit || limit <= 0) continue;
+        await fetch(BACKEND_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            type: 'budget',
+            category: input.dataset.cat,
+            limit: limit,
+            userId: userId,
+            initData: tg ? tg.initData : ''
+          })
+        });
+      }
+      statusEl.textContent = 'Saved ✓';
+    } catch (err) {
+      statusEl.textContent = 'Could not save, try again';
+      statusEl.classList.add('error');
+    }
+  });
+
+  let calendarEntries = [];
+  let calMode = 'month';
+  let calRefDate = new Date();
+  const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  async function loadCalendar() {
+    calRefDate = new Date();
+    document.getElementById('cal-body').innerHTML = '<div class="empty-note">Loading...</div>';
+    document.getElementById('cal-day-entries').innerHTML = '';
+    document.getElementById('cal-day-label').textContent = 'Tap a day to see entries';
+
+    try {
+      const userId = getUserId();
+      const res = await fetch(BACKEND_URL + '?userId=' + userId);
+      const data = await res.json();
+      calendarEntries = data.entries || [];
+      renderCalendar();
+    } catch (err) {
+      document.getElementById('cal-body').innerHTML = '<div class="empty-note">Could not load data</div>';
+    }
+  }
+
+  document.querySelectorAll('.cal-subtab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.cal-subtab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      calMode = btn.dataset.mode;
+      renderCalendar();
+    });
+  });
+
+  document.getElementById('cal-prev').addEventListener('click', () => { navigateCal(-1); });
+  document.getElementById('cal-next').addEventListener('click', () => { navigateCal(1); });
+
+  function navigateCal(dir) {
+    if (calMode === 'week') calRefDate.setDate(calRefDate.getDate() + dir * 7);
+    else if (calMode === 'month') calRefDate.setMonth(calRefDate.getMonth() + dir);
+    else calRefDate.setFullYear(calRefDate.getFullYear() + dir);
+    renderCalendar();
+  }
+
+  function entriesOnDate(d) {
+    return calendarEntries.filter(en => {
+      const ed = new Date(en.date);
+      return ed.getFullYear() === d.getFullYear() && ed.getMonth() === d.getMonth() && ed.getDate() === d.getDate();
+    });
+  }
+
+  function sumEntries(list) { return list.reduce((s, en) => s + (en.amount || 0), 0); }
+
+  function renderCalendar() {
+    const label = document.getElementById('cal-period-label');
+    const body = document.getElementById('cal-body');
+    document.getElementById('cal-day-entries').innerHTML = '';
+    document.getElementById('cal-day-label').textContent = 'Tap a day to see entries';
+
+    if (calMode === 'month') {
+      label.textContent = calRefDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      const y = calRefDate.getFullYear(), m = calRefDate.getMonth();
+      const firstDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+      let html = '<div class="cal-grid">';
+      html += DOW_SHORT.map(d => '<div class="cal-dow">' + d[0] + '</div>').join('');
+      for (let i = 0; i < firstDow; i++) html += '<div class="cal-day empty"></div>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const spend = sumEntries(entriesOnDate(new Date(y, m, day)));
+        html += '<div class="cal-day' + (spend ? ' has-spend' : '') + '" data-date="' + y + '-' + (m + 1) + '-' + day + '">' +
+          '<span class="num">' + day + '</span>' +
+          (spend ? '<span class="amt">$' + spend.toFixed(0) + '</span>' : '') +
+          '</div>';
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
+        cell.addEventListener('click', () => {
+          body.querySelectorAll('.cal-day').forEach(c => c.classList.remove('selected'));
+          cell.classList.add('selected');
+          const [yy, mm, dd] = cell.dataset.date.split('-').map(Number);
+          showDayEntries(new Date(yy, mm - 1, dd));
+        });
+      });
+
+    } else if (calMode === 'week') {
+      const start = new Date(calRefDate);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start); end.setDate(end.getDate() + 6);
+      label.textContent = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' – ' + end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const spend = sumEntries(entriesOnDate(d));
+        html += '<div class="cal-week-row' + (spend ? ' has-spend' : '') + '" data-date="' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + '">' +
+          '<span class="dow">' + DOW_SHORT[d.getDay()] + ' ' + d.getDate() + '</span>' +
+          '<span class="amt">' + (spend ? '$' + spend.toFixed(2) : '—') + '</span>' +
+          '</div>';
+      }
+      body.innerHTML = html;
+      body.querySelectorAll('.cal-week-row').forEach(row => {
+        row.addEventListener('click', () => {
+          body.querySelectorAll('.cal-week-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          const [yy, mm, dd] = row.dataset.date.split('-').map(Number);
+          showDayEntries(new Date(yy, mm - 1, dd));
+        });
+      });
+
+    } else {
+      const y = calRefDate.getFullYear();
+      label.textContent = String(y);
+      let html = '<div class="cal-year-grid">';
+      for (let mo = 0; mo < 12; mo++) {
+        const monthEntries = calendarEntries.filter(en => {
+          const ed = new Date(en.date);
+          return ed.getFullYear() === y && ed.getMonth() === mo;
+        });
+        const spend = sumEntries(monthEntries);
+        html += '<div class="cal-year-cell' + (spend ? ' has-spend' : '') + '" data-month="' + mo + '">' +
+          '<span class="mon">' + MONTH_SHORT[mo] + '</span>' +
+          (spend ? '<span class="amt">$' + spend.toFixed(0) + '</span>' : '') +
+          '</div>';
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('.cal-year-cell').forEach(cell => {
+        cell.addEventListener('click', () => {
+          calRefDate = new Date(y, parseInt(cell.dataset.month, 10), 1);
+          calMode = 'month';
+          document.querySelectorAll('.cal-subtab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector('.cal-subtab-btn[data-mode="month"]').classList.add('active');
+          renderCalendar();
+        });
+      });
+    }
+  }
+
+  function showDayEntries(dateObj) {
+    const label = document.getElementById('cal-day-label');
+    const listEl = document.getElementById('cal-day-entries');
+    const dayEntries = entriesOnDate(dateObj);
+
+    label.textContent = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    if (dayEntries.length === 0) {
+      listEl.innerHTML = '<div class="empty-note">No entries this day</div>';
+      return;
+    }
+    listEl.innerHTML = dayEntries.map(en =>
+      '<div class="day-entry"><span>' + en.category + (en.expenseType ? ' · ' + en.expenseType : '') + (en.note ? ' — ' + en.note : '') + '</span><span class="amt">$' + en.amount.toFixed(2) + '</span></div>'
+    ).join('');
+  }
+
+  async function loadGoals() {
+    const listEl = document.getElementById('goals-list');
+    listEl.innerHTML = '<div class="empty-note">Loading...</div>';
+    try {
+      let goals;
+      const userId = getUserId();
+      const res = await fetch(BACKEND_URL + '?resource=goals&userId=' + userId);
+      const data = await res.json();
+      goals = data.goals || [];
+
+      if (goals.length === 0) {
+        listEl.innerHTML = '<div class="empty-note">No goals yet — add one above</div>';
+        return;
+      }
+
+      listEl.innerHTML = goals.map(g => {
+        const pct = g.target > 0 ? Math.min(100, Math.round((g.saved / g.target) * 100)) : 0;
+        const reached = g.saved >= g.target && g.target > 0;
+        return '<div class="goal-card">' +
+          '<div class="goal-card-top"><span class="name">' + g.name + (reached ? ' ✓' : '') +
+          '<button type="button" class="goal-delete-btn" data-goal="' + g.name + '" title="Delete goal">×</button></span>' +
+          '<span class="nums">$' + g.saved.toFixed(2) + ' / $' + g.target.toFixed(2) + '</span></div>' +
+          '<div class="goal-bar-track"><div class="goal-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="goal-contribute">' +
+          '<input type="number" step="0.01" min="0" placeholder="Add amount" data-goal="' + g.name + '">' +
+          '<button type="button" class="goal-contribute-btn" data-goal="' + g.name + '">Add</button>' +
+          '</div></div>';
+      }).join('');
+
+      listEl.querySelectorAll('.goal-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete "' + btn.dataset.goal + '"? This can\'t be undone.')) return;
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'goal_delete',
+                name: btn.dataset.goal,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadGoals();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
+
+      listEl.querySelectorAll('.goal-contribute-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const input = listEl.querySelector('input[data-goal="' + btn.dataset.goal + '"]');
+          const amount = parseFloat(input.value);
+          if (!amount || amount <= 0) return;
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'goal_contribute',
+                name: btn.dataset.goal,
+                amount: amount,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadGoals();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = '<div class="empty-note">Could not load goals</div>';
+    }
+  }
+
+  document.getElementById('add-goal-btn').addEventListener('click', async () => {
+    const nameInput = document.getElementById('new-goal-name');
+    const targetInput = document.getElementById('new-goal-target');
+    const statusEl = document.getElementById('goals-status');
+    const name = nameInput.value.trim();
+    const target = parseFloat(targetInput.value);
+
+    if (!name || !target || target <= 0) {
+      statusEl.textContent = 'Enter a name and target amount';
+      statusEl.classList.add('error');
+      return;
+    }
+    statusEl.textContent = 'Adding...';
+    statusEl.classList.remove('error');
+
+    try {
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          type: 'goal_create',
+          name: name,
+          target: target,
+          userId: getUserId(),
+          initData: tg ? tg.initData : ''
+        })
+      });
+      nameInput.value = '';
+      targetInput.value = '';
+      statusEl.textContent = 'Goal added ✓';
+      loadGoals();
+    } catch (err) {
+      statusEl.textContent = 'Could not add, try again';
+      statusEl.classList.add('error');
+    }
+  });
+
+  async function loadDebts() {
+    const listEl = document.getElementById('debts-list');
+    listEl.innerHTML = '<div class="empty-note">Loading...</div>';
+    try {
+      let debts;
+      const userId = getUserId();
+      const res = await fetch(BACKEND_URL + '?resource=debts&userId=' + userId);
+      const data = await res.json();
+      debts = data.debts || [];
+
+      if (debts.length === 0) {
+        listEl.innerHTML = '<div class="empty-note">No debts tracked — add one above</div>';
+        return;
+      }
+
+      listEl.innerHTML = debts.map(d => {
+        const remaining = Math.max(0, d.total - d.paid);
+        const pct = d.total > 0 ? Math.min(100, Math.round((d.paid / d.total) * 100)) : 0;
+        const cleared = remaining <= 0 && d.total > 0;
+        return '<div class="goal-card">' +
+          '<div class="goal-card-top debt-card-top"><span class="name">' + d.name + (cleared ? ' ✓' : '') +
+          '<button type="button" class="goal-delete-btn" data-debt="' + d.name + '" title="Delete debt">×</button></span>' +
+          '<span class="nums' + (cleared ? ' cleared' : '') + '">' + (cleared ? 'Cleared' : '$' + remaining.toFixed(2) + ' left') + '</span></div>' +
+          '<div class="goal-bar-track"><div class="goal-bar-fill debt-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="goal-contribute">' +
+          '<input type="number" step="0.01" min="0" placeholder="Log payment" data-debt="' + d.name + '">' +
+          '<button type="button" class="debt-pay-btn" data-debt="' + d.name + '">Pay</button>' +
+          '</div></div>';
+      }).join('');
+
+      listEl.querySelectorAll('.debt-pay-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const input = listEl.querySelector('input[data-debt="' + btn.dataset.debt + '"]');
+          const amount = parseFloat(input.value);
+          if (!amount || amount <= 0) return;
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'debt_payment',
+                name: btn.dataset.debt,
+                amount: amount,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadDebts();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
+
+      listEl.querySelectorAll('.goal-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete "' + btn.dataset.debt + '"? This can\'t be undone.')) return;
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'debt_delete',
+                name: btn.dataset.debt,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadDebts();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = '<div class="empty-note">Could not load debts</div>';
+    }
+  }
+
+  document.getElementById('add-debt-btn').addEventListener('click', async () => {
+    const nameInput = document.getElementById('new-debt-name');
+    const totalInput = document.getElementById('new-debt-total');
+    const statusEl = document.getElementById('debts-status');
+    const name = nameInput.value.trim();
+    const total = parseFloat(totalInput.value);
+
+    if (!name || !total || total <= 0) {
+      statusEl.textContent = 'Enter a name and total owed';
+      statusEl.classList.add('error');
+      return;
+    }
+    statusEl.textContent = 'Adding...';
+    statusEl.classList.remove('error');
+
+    try {
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          type: 'debt_create',
+          name: name,
+          total: total,
+          userId: getUserId(),
+          initData: tg ? tg.initData : ''
+        })
+      });
+      nameInput.value = '';
+      totalInput.value = '';
+      statusEl.textContent = 'Debt added ✓';
+      loadDebts();
+    } catch (err) {
+      statusEl.textContent = 'Could not add, try again';
+      statusEl.classList.add('error');
+    }
+  });
+
+  let selectedCategory = null;
+  document.querySelectorAll('#categories .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#categories .cat-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedCategory = btn.dataset.cat;
+    });
+  });
+
+  let selectedExpenseType = null;
+  document.querySelectorAll('#expense-types .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#expense-types .cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedExpenseType = btn.dataset.type;
     });
   });
 
@@ -402,17 +1265,23 @@
       statusEl.classList.add('error');
       return;
     }
+    if (!selectedExpenseType) {
+      statusEl.textContent = 'Pick an expense type';
+      statusEl.classList.add('error');
+      return;
+    }
 
     const payload = {
       amount: amount,
       category: selectedCategory,
+      expenseType: selectedExpenseType,
       date: document.getElementById('date').value,
       note: document.getElementById('note').value,
       // Telegram user info, available once this runs inside Telegram
       user: tg && tg.initDataUnsafe && tg.initDataUnsafe.user
         ? (tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || ('id:' + tg.initDataUnsafe.user.id))
         : null,
-      userId: tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null,
+      userId: getUserId() || null,
       initData: tg ? tg.initData : ''
     };
 
