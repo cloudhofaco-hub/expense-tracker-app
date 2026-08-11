@@ -590,7 +590,7 @@
       <span class="field-label">Category</span>
       <div class="categories" id="categories">
         <button type="button" class="cat-btn" data-cat="Food & Groceries">🍚 Food & Groceries</button>
-        <button type="button" class="cat-btn" data-cat="Eating Out">🍔 Eating Out</button>
+        <button type="button" class="cat-btn" data-cat="Eating Out/Coffee">🍔 Eating Out/Coffee</button>
         <button type="button" class="cat-btn" data-cat="Rent/Housing">🏠 Rent/Housing</button>
         <button type="button" class="cat-btn" data-cat="Utilities">💡 Utilities</button>
         <button type="button" class="cat-btn" data-cat="Phone & Internet">📱 Phone & Internet</button>
@@ -633,7 +633,6 @@
 
   <div class="view" id="view-summary">
     <div class="total-block">
-      <span class="field-label">This month</span>
       <div class="total-amount" id="summary-total">$0.00</div>
     </div>
     <div class="field">
@@ -677,6 +676,8 @@
     <div class="new-goal-form">
       <input type="text" id="new-goal-name" placeholder="Goal name, e.g. Trip to Japan">
       <input type="number" id="new-goal-target" step="0.01" min="0" placeholder="Target amount">
+      <label class="field-label" style="margin-bottom:-2px">Date started</label>
+      <input type="date" id="new-goal-date">
       <button type="button" class="submit-btn" id="add-goal-btn">Add goal</button>
     </div>
     <div id="goals-list"></div>
@@ -702,17 +703,13 @@
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     <span>Daily</span>
   </button>
-  <button type="button" class="tab-btn" data-tab="summary">
-    <svg viewBox="0 0 24 24"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="15"/></svg>
-    <span>Summary</span>
-  </button>
-  <button type="button" class="tab-btn" data-tab="budgets">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
-    <span>Budgets</span>
-  </button>
   <button type="button" class="tab-btn" data-tab="calendar">
     <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
     <span>Calendar</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="summary">
+    <svg viewBox="0 0 24 24"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="15"/></svg>
+    <span>Summary</span>
   </button>
   <button type="button" class="tab-btn" data-tab="goals">
     <svg viewBox="0 0 24 24"><line x1="6" y1="21" x2="6" y2="4"/><path d="M6 4h13l-3 4 3 4H6"/></svg>
@@ -721,6 +718,10 @@
   <button type="button" class="tab-btn" data-tab="debts">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
     <span>Debts</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="budgets">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
+    <span>Budgets</span>
   </button>
 </nav>
 
@@ -736,7 +737,6 @@
   dateInput.valueAsDate = new Date();
 
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbytwQbZdmNzOYcKcv6JkRfuBNAAKltXhEz2NcIR5xXchdh01ZbFZW4HbA0fYK9UsklsMQ/exec';
-
 
   // Tab switching
   const pageTitle = document.getElementById('page-title');
@@ -767,10 +767,10 @@
     });
   });
 
-  const CATEGORY_LIST = ['Food & Groceries', 'Eating Out', 'Rent/Housing', 'Utilities', 'Phone & Internet', 'Transportation', 'Household', 'Personal Care', 'Education', 'Family', 'Financial', 'Other'];
+  const CATEGORY_LIST = ['Food & Groceries', 'Eating Out/Coffee', 'Rent/Housing', 'Utilities', 'Phone & Internet', 'Transportation', 'Household', 'Personal Care', 'Education', 'Family', 'Financial', 'Other'];
   const CATEGORY_COLORS = {
     'Food & Groceries': '#C4482E',
-    'Eating Out': '#D97B4F',
+    'Eating Out/Coffee': '#D97B4F',
     'Rent/Housing': '#5C4A72',
     'Utilities': '#8A6D3B',
     'Phone & Internet': '#3C6E71',
@@ -1084,30 +1084,80 @@
     const listEl = document.getElementById('goals-list');
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
-      let goals;
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=goals&userId=' + userId);
-      const data = await res.json();
-      goals = data.goals || [];
+      const [goalsRes, contribRes] = await Promise.all([
+        fetch(BACKEND_URL + '?resource=goals&userId=' + userId),
+        fetch(BACKEND_URL + '?resource=goalContributions&userId=' + userId)
+      ]);
+      const goalsData = await goalsRes.json();
+      const contribData = await contribRes.json();
+      const goals = goalsData.goals || [];
+      const allContributions = contribData.goalContributions || [];
+
+      goals.forEach(g => {
+        g.contributions = allContributions
+          .filter(c => c.goalName === g.name)
+          .map(c => ({ amount: c.amount, date: c.date, expenseType: c.expenseType, note: c.note }));
+      });
 
       if (goals.length === 0) {
         listEl.innerHTML = '<div class="empty-note">No goals yet — add one above</div>';
         return;
       }
 
+      const typeOptions = ['Cash', 'ABA', 'Wing', 'Acleda', 'PPC', 'Other'];
+      const today = new Date().toISOString().split('T')[0];
+
       listEl.innerHTML = goals.map(g => {
-        const pct = g.target > 0 ? Math.min(100, Math.round((g.saved / g.target) * 100)) : 0;
-        const reached = g.saved >= g.target && g.target > 0;
+        const saved = g.saved || 0;
+        const pct = g.target > 0 ? Math.min(100, Math.round((saved / g.target) * 100)) : 0;
+        const reached = saved >= g.target && g.target > 0;
+        const contributions = (g.contributions || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const historyHtml = contributions.length
+          ? contributions.map(c =>
+              '<div class="day-entry"><span>' + new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+              (c.expenseType ? ' · ' + c.expenseType : '') + (c.note ? ' — ' + c.note : '') + '</span><span class="amt">$' + c.amount.toFixed(2) + '</span></div>'
+            ).join('')
+          : '<div class="empty-note">No contributions logged yet</div>';
+
+        const dateStartedLabel = g.dateStarted
+          ? 'Started ' + new Date(g.dateStarted).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '';
+
         return '<div class="goal-card">' +
-          '<div class="goal-card-top"><span class="name">' + g.name + (reached ? ' ✓' : '') +
-          '<button type="button" class="goal-delete-btn" data-goal="' + g.name + '" title="Delete goal">×</button></span>' +
-          '<span class="nums">$' + g.saved.toFixed(2) + ' / $' + g.target.toFixed(2) + '</span></div>' +
+          '<div class="goal-card-top">' +
+          '<span class="name" data-goal-toggle="' + g.name + '"><span class="chevron">▸</span>' + g.name + (reached ? ' ✓' : '') +
+          ' <span style="font-weight:400;color:var(--ink-soft);font-size:11px">(' + contributions.length + ')</span></span>' +
+          '<button type="button" class="goal-delete-btn" data-goal="' + g.name + '" title="Delete goal">×</button></div>' +
+          (dateStartedLabel ? '<div class="debt-date-taken">' + dateStartedLabel + '</div>' : '') +
+          '<div class="nums" style="margin-bottom:8px">$' + saved.toFixed(2) + ' / $' + g.target.toFixed(2) + '</div>' +
           '<div class="goal-bar-track"><div class="goal-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="goal-contribute">' +
-          '<input type="number" step="0.01" min="0" placeholder="Add amount" data-goal="' + g.name + '">' +
-          '<button type="button" class="goal-contribute-btn" data-goal="' + g.name + '">Add</button>' +
-          '</div></div>';
+          '<div class="debt-payment-form">' +
+          '<div class="debt-payment-row1">' +
+          '<input type="number" step="0.01" min="0" placeholder="Amount" class="goal-contrib-amount" data-goal="' + g.name + '">' +
+          '<input type="date" class="goal-contrib-date" data-goal="' + g.name + '" value="' + today + '">' +
+          '</div>' +
+          '<div class="debt-payment-row2">' +
+          '<select class="goal-contrib-type" data-goal="' + g.name + '">' +
+          typeOptions.map(t => '<option value="' + t + '">' + t + '</option>').join('') +
+          '</select>' +
+          '<button type="button" class="goal-contribute-btn" data-goal="' + g.name + '">Log contribution</button>' +
+          '</div>' +
+          '<input type="text" class="goal-contrib-note" data-goal="' + g.name + '" placeholder="Note (optional)">' +
+          '</div>' +
+          '<div class="debt-history" data-goal-history="' + g.name + '">' + historyHtml + '</div>' +
+          '</div>';
       }).join('');
+
+      listEl.querySelectorAll('[data-goal-toggle]').forEach(nameEl => {
+        nameEl.addEventListener('click', () => {
+          const goalName = nameEl.dataset.goalToggle;
+          const historyEl = listEl.querySelector('[data-goal-history="' + goalName + '"]');
+          const isExpanded = historyEl.classList.toggle('expanded');
+          nameEl.classList.toggle('expanded', isExpanded);
+        });
+      });
 
       listEl.querySelectorAll('.goal-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -1133,9 +1183,17 @@
 
       listEl.querySelectorAll('.goal-contribute-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const input = listEl.querySelector('input[data-goal="' + btn.dataset.goal + '"]');
-          const amount = parseFloat(input.value);
+          const name = btn.dataset.goal;
+          const amountInput = listEl.querySelector('.goal-contrib-amount[data-goal="' + name + '"]');
+          const dateInput = listEl.querySelector('.goal-contrib-date[data-goal="' + name + '"]');
+          const typeInput = listEl.querySelector('.goal-contrib-type[data-goal="' + name + '"]');
+          const noteInput = listEl.querySelector('.goal-contrib-note[data-goal="' + name + '"]');
+          const amount = parseFloat(amountInput.value);
+          const date = dateInput.value;
+          const expenseType = typeInput.value;
+          const note = noteInput.value.trim();
           if (!amount || amount <= 0) return;
+
           btn.disabled = true;
           try {
             await fetch(BACKEND_URL, {
@@ -1143,8 +1201,11 @@
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
                 type: 'goal_contribute',
-                name: btn.dataset.goal,
+                name: name,
                 amount: amount,
+                date: date,
+                expenseType: expenseType,
+                note: note,
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
@@ -1160,12 +1221,16 @@
     }
   }
 
+  document.getElementById('new-goal-date').valueAsDate = new Date();
+
   document.getElementById('add-goal-btn').addEventListener('click', async () => {
     const nameInput = document.getElementById('new-goal-name');
     const targetInput = document.getElementById('new-goal-target');
+    const dateInput = document.getElementById('new-goal-date');
     const statusEl = document.getElementById('goals-status');
     const name = nameInput.value.trim();
     const target = parseFloat(targetInput.value);
+    const dateStarted = dateInput.value;
 
     if (!name || !target || target <= 0) {
       statusEl.textContent = 'Enter a name and target amount';
@@ -1183,6 +1248,7 @@
           type: 'goal_create',
           name: name,
           target: target,
+          dateStarted: dateStarted,
           userId: getUserId(),
           initData: tg ? tg.initData : ''
         })
@@ -1380,9 +1446,6 @@
       statusEl.classList.add('error');
     }
   });
-
-  // Preview: jump straight to Debts tab so the new feature is visible right away
-  document.querySelector('[data-tab="debts"]').click();
 
   let selectedCategory = null;
   document.querySelectorAll('#categories .cat-btn').forEach(btn => {
