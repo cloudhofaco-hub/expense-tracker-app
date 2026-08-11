@@ -326,6 +326,50 @@
     line-height: 1;
   }
   .goal-delete-btn:hover { color: var(--stamp); }
+  .goal-edit-btn, .debt-edit-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 0 0 8px;
+    line-height: 1;
+  }
+  .goal-edit-btn:hover, .debt-edit-btn:hover { color: var(--ink); }
+  .edit-panel {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--paper);
+    border: 1px dashed var(--paper-line);
+  }
+  .edit-panel.active { display: flex; }
+  .edit-panel input {
+    height: 36px;
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    outline: none;
+    width: 100%;
+  }
+  .edit-actions { display: flex; gap: 8px; }
+  .edit-save-btn, .edit-cancel-btn {
+    flex: 1;
+    height: 34px;
+    font-family: var(--sans);
+    font-size: 12px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  .edit-save-btn { background: var(--ink); color: var(--paper); }
+  .edit-cancel-btn { background: var(--paper-line); color: var(--ink); }
   .goal-bar-track {
     height: 8px;
     background: var(--stamp-soft);
@@ -393,6 +437,8 @@
     gap: 8px;
   }
   .debt-payment-row1 input,
+  .debt-payment-row1 select,
+  .debt-payment-row2 input,
   .debt-payment-row2 select {
     flex: 1;
     height: 38px;
@@ -407,6 +453,7 @@
     -webkit-appearance: none;
     appearance: none;
   }
+  .debt-payment-row1 select,
   .debt-payment-row2 select {
     font-family: var(--sans);
     background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F6B5C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -414,6 +461,17 @@
     background-position: right 8px center;
     background-size: 14px;
     padding-right: 28px;
+  }
+  .debt-payment-row1 .currency-mini,
+  .debt-payment-row2 .currency-mini {
+    flex: 0 0 56px;
+    padding: 0 18px 0 10px;
+    background-position: right 6px center;
+    background-size: 11px;
+  }
+  .debt-payment-row1 .type-mini,
+  .debt-payment-row2 .type-mini {
+    flex: 0 0 120px;
   }
   .debt-payment-row2 button {
     height: 38px;
@@ -471,12 +529,25 @@
     border-bottom: 1px dashed var(--paper-line);
     margin-bottom: 24px;
   }
-  .amount-block .currency {
+  .currency-symbol-select {
     font-family: var(--mono);
-    font-size: 15px;
-    color: var(--ink-soft);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
     vertical-align: top;
-    margin-right: 2px;
+    margin-top: 8px;
+    margin-right: 4px;
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 14px;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F6B5C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 12px;
   }
   .amount-input {
     font-family: var(--mono);
@@ -583,7 +654,10 @@
   <div class="view active" id="view-add">
   <form id="expense-form">
     <div class="amount-block">
-      <span class="currency">$</span><input class="amount-input" id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" required>
+      <select class="currency-symbol-select" id="currency-select">
+        <option value="USD" selected>$</option>
+        <option value="KHR">៛</option>
+      </select><input class="amount-input" id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" required>
     </div>
 
     <div class="field">
@@ -647,7 +721,15 @@
 
   <div class="view" id="view-budgets">
     <div class="field">
-      <span class="field-label">Monthly limit per category</span>
+      <span class="field-label">Exchange rate ($1 =)</span>
+      <div class="debt-payment-row1">
+        <input type="number" step="1" min="1" id="exchange-rate-input" placeholder="e.g. 4100">
+        <button type="button" class="debt-pay-btn" id="save-rate-btn" style="flex:0 0 auto;">Save rate</button>
+      </div>
+      <div class="status" id="rate-status"></div>
+    </div>
+    <div class="field">
+      <span class="field-label">Monthly limit per category (USD)</span>
       <div id="budget-inputs"></div>
       <button type="button" class="submit-btn" id="save-budgets-btn">Save limits</button>
       <div class="status" id="budget-status"></div>
@@ -751,6 +833,7 @@
         loadSummary();
       } else if (btn.dataset.tab === 'budgets') {
         pageTitle.textContent = 'Set your limits';
+        loadExchangeRate();
         loadBudgetInputs();
       } else if (btn.dataset.tab === 'calendar') {
         pageTitle.textContent = 'Calendar';
@@ -787,6 +870,69 @@
     return tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : '';
   }
 
+  // ---- Currency (USD base, KHR secondary) ----
+  let EXCHANGE_RATE = 4100;
+
+  function toUSD(amount, currency) {
+    if (currency === 'KHR') return amount / EXCHANGE_RATE;
+    return amount;
+  }
+
+  function formatMoney(amount, currency) {
+    if (currency === 'KHR') return '៛' + Math.round(amount).toLocaleString('en-US');
+    return '$' + amount.toFixed(2);
+  }
+
+  function entryAmountLabel(en) {
+    const currency = en.currency || 'USD';
+    const base = formatMoney(en.amount, currency);
+    if (currency === 'KHR') return base + ' (≈$' + toUSD(en.amount, currency).toFixed(2) + ')';
+    return base;
+  }
+
+  async function loadExchangeRate() {
+    const input = document.getElementById('exchange-rate-input');
+    try {
+      const userId = getUserId();
+      const res = await fetch(BACKEND_URL + '?resource=settings&userId=' + userId);
+      const data = await res.json();
+      if (data.exchangeRate) {
+        EXCHANGE_RATE = Number(data.exchangeRate);
+        input.value = EXCHANGE_RATE;
+      }
+    } catch (err) { /* keep default */ }
+  }
+
+  document.getElementById('save-rate-btn').addEventListener('click', async () => {
+    const input = document.getElementById('exchange-rate-input');
+    const statusEl = document.getElementById('rate-status');
+    const rate = parseFloat(input.value);
+    if (!rate || rate <= 0) {
+      statusEl.textContent = 'Enter a valid rate';
+      statusEl.classList.add('error');
+      return;
+    }
+    EXCHANGE_RATE = rate;
+    statusEl.classList.remove('error');
+    statusEl.textContent = 'Saving...';
+    try {
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          type: 'settings_save',
+          exchangeRate: rate,
+          userId: getUserId(),
+          initData: tg ? tg.initData : ''
+        })
+      });
+      statusEl.textContent = 'Saved ✓';
+    } catch (err) {
+      statusEl.textContent = 'Could not save, try again';
+      statusEl.classList.add('error');
+    }
+  });
+
   let summaryMonthEntries = [];
 
   async function loadSummary() {
@@ -816,7 +962,7 @@
       });
       summaryMonthEntries = thisMonth;
 
-      const total = thisMonth.reduce((sum, en) => sum + (en.amount || 0), 0);
+      const total = thisMonth.reduce((sum, en) => sum + toUSD(en.amount || 0, en.currency || 'USD'), 0);
       totalEl.textContent = '$' + total.toFixed(2);
 
       if (thisMonth.length === 0) {
@@ -826,7 +972,7 @@
 
       const byCategory = {};
       thisMonth.forEach(en => {
-        byCategory[en.category] = (byCategory[en.category] || 0) + en.amount;
+        byCategory[en.category] = (byCategory[en.category] || 0) + toUSD(en.amount || 0, en.currency || 'USD');
       });
 
       const sorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
@@ -872,7 +1018,7 @@
       .map(en =>
         '<div class="day-entry"><span>' + new Date(en.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
         (en.expenseType ? ' · ' + en.expenseType : '') + (en.note ? ' — ' + en.note : '') +
-        '</span><span class="amt">$' + en.amount.toFixed(2) + '</span></div>'
+        '</span><span class="amt">' + entryAmountLabel(en) + '</span></div>'
       ).join('');
   }
 
@@ -975,7 +1121,7 @@
     });
   }
 
-  function sumEntries(list) { return list.reduce((s, en) => s + (en.amount || 0), 0); }
+  function sumEntries(list) { return list.reduce((s, en) => s + toUSD(en.amount || 0, en.currency || 'USD'), 0); }
 
   function renderCalendar() {
     const label = document.getElementById('cal-period-label');
@@ -1076,7 +1222,7 @@
       return;
     }
     listEl.innerHTML = dayEntries.map(en =>
-      '<div class="day-entry"><span>' + en.category + (en.expenseType ? ' · ' + en.expenseType : '') + (en.note ? ' — ' + en.note : '') + '</span><span class="amt">$' + en.amount.toFixed(2) + '</span></div>'
+      '<div class="day-entry"><span>' + en.category + (en.expenseType ? ' · ' + en.expenseType : '') + (en.note ? ' — ' + en.note : '') + '</span><span class="amt">' + entryAmountLabel(en) + '</span></div>'
     ).join('');
   }
 
@@ -1085,20 +1231,9 @@
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
       const userId = getUserId();
-      const [goalsRes, contribRes] = await Promise.all([
-        fetch(BACKEND_URL + '?resource=goals&userId=' + userId),
-        fetch(BACKEND_URL + '?resource=goalContributions&userId=' + userId)
-      ]);
-      const goalsData = await goalsRes.json();
-      const contribData = await contribRes.json();
-      const goals = goalsData.goals || [];
-      const allContributions = contribData.goalContributions || [];
-
-      goals.forEach(g => {
-        g.contributions = allContributions
-          .filter(c => c.goalName === g.name)
-          .map(c => ({ amount: c.amount, date: c.date, expenseType: c.expenseType, note: c.note }));
-      });
+      const res = await fetch(BACKEND_URL + '?resource=goals&userId=' + userId);
+      const data = await res.json();
+      const goals = data.goals || [];
 
       if (goals.length === 0) {
         listEl.innerHTML = '<div class="empty-note">No goals yet — add one above</div>';
@@ -1117,7 +1252,7 @@
         const historyHtml = contributions.length
           ? contributions.map(c =>
               '<div class="day-entry"><span>' + new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-              (c.expenseType ? ' · ' + c.expenseType : '') + (c.note ? ' — ' + c.note : '') + '</span><span class="amt">$' + c.amount.toFixed(2) + '</span></div>'
+              (c.expenseType ? ' · ' + c.expenseType : '') + (c.note ? ' — ' + c.note : '') + '</span><span class="amt">' + entryAmountLabel(c) + '</span></div>'
             ).join('')
           : '<div class="empty-note">No contributions logged yet</div>';
 
@@ -1125,30 +1260,90 @@
           ? 'Started ' + new Date(g.dateStarted).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : '';
 
-        return '<div class="goal-card">' +
+        return '<div class="goal-card" data-goal-card="' + g.name + '">' +
           '<div class="goal-card-top">' +
           '<span class="name" data-goal-toggle="' + g.name + '"><span class="chevron">▸</span>' + g.name + (reached ? ' ✓' : '') +
           ' <span style="font-weight:400;color:var(--ink-soft);font-size:11px">(' + contributions.length + ')</span></span>' +
-          '<button type="button" class="goal-delete-btn" data-goal="' + g.name + '" title="Delete goal">×</button></div>' +
+          '<span><button type="button" class="goal-edit-btn" data-goal="' + g.name + '" title="Edit goal">✎</button>' +
+          '<button type="button" class="goal-delete-btn" data-goal="' + g.name + '" title="Delete goal">×</button></span></div>' +
+          '<div class="view-mode-fields" data-goal-view="' + g.name + '">' +
           (dateStartedLabel ? '<div class="debt-date-taken">' + dateStartedLabel + '</div>' : '') +
           '<div class="nums" style="margin-bottom:8px">$' + saved.toFixed(2) + ' / $' + g.target.toFixed(2) + '</div>' +
           '<div class="goal-bar-track"><div class="goal-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="debt-payment-form">' +
+          '</div>' +
+          '<div class="edit-panel" data-goal-edit="' + g.name + '">' +
+          '<input type="text" class="edit-name" value="' + g.name + '" placeholder="Goal name">' +
+          '<input type="number" step="0.01" min="0" class="edit-target" value="' + g.target + '" placeholder="Target amount">' +
+          '<input type="date" class="edit-date" value="' + (g.dateStarted || '') + '">' +
+          '<div class="edit-actions">' +
+          '<button type="button" class="edit-save-btn" data-goal="' + g.name + '">Save</button>' +
+          '<button type="button" class="edit-cancel-btn" data-goal="' + g.name + '">Cancel</button>' +
+          '</div></div>' +
+          '<div class="debt-payment-form" data-goal-view2="' + g.name + '">' +
           '<div class="debt-payment-row1">' +
           '<input type="number" step="0.01" min="0" placeholder="Amount" class="goal-contrib-amount" data-goal="' + g.name + '">' +
-          '<input type="date" class="goal-contrib-date" data-goal="' + g.name + '" value="' + today + '">' +
+          '<select class="goal-contrib-currency currency-mini" data-goal="' + g.name + '"><option value="USD">$</option><option value="KHR">៛</option></select>' +
           '</div>' +
-          '<div class="debt-payment-row2">' +
-          '<select class="goal-contrib-type" data-goal="' + g.name + '">' +
+          '<div class="debt-payment-row1">' +
+          '<input type="date" class="goal-contrib-date" data-goal="' + g.name + '" value="' + today + '">' +
+          '<select class="goal-contrib-type type-mini" data-goal="' + g.name + '">' +
           typeOptions.map(t => '<option value="' + t + '">' + t + '</option>').join('') +
           '</select>' +
-          '<button type="button" class="goal-contribute-btn" data-goal="' + g.name + '">Log contribution</button>' +
           '</div>' +
+          '<div class="debt-payment-row2">' +
           '<input type="text" class="goal-contrib-note" data-goal="' + g.name + '" placeholder="Note (optional)">' +
+          '<button type="button" class="goal-contribute-btn type-mini" data-goal="' + g.name + '">Log</button>' +
+          '</div>' +
           '</div>' +
           '<div class="debt-history" data-goal-history="' + g.name + '">' + historyHtml + '</div>' +
           '</div>';
       }).join('');
+
+      listEl.querySelectorAll('.goal-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.goal;
+          const card = listEl.querySelector('[data-goal-card="' + name + '"]');
+          card.querySelector('[data-goal-view="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-goal-view2="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-goal-history="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-goal-edit="' + name + '"]').classList.add('active');
+        });
+      });
+
+      listEl.querySelectorAll('.edit-cancel-btn[data-goal]').forEach(btn => {
+        btn.addEventListener('click', () => loadGoals());
+      });
+
+      listEl.querySelectorAll('.edit-save-btn[data-goal]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const oldName = btn.dataset.goal;
+          const panel = listEl.querySelector('[data-goal-edit="' + oldName + '"]');
+          const newName = panel.querySelector('.edit-name').value.trim();
+          const newTarget = parseFloat(panel.querySelector('.edit-target').value);
+          const newDate = panel.querySelector('.edit-date').value;
+          if (!newName || !newTarget || newTarget <= 0) return;
+
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'goal_edit',
+                oldName: oldName,
+                name: newName,
+                target: newTarget,
+                dateStarted: newDate,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadGoals();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
 
       listEl.querySelectorAll('[data-goal-toggle]').forEach(nameEl => {
         nameEl.addEventListener('click', () => {
@@ -1185,10 +1380,12 @@
         btn.addEventListener('click', async () => {
           const name = btn.dataset.goal;
           const amountInput = listEl.querySelector('.goal-contrib-amount[data-goal="' + name + '"]');
+          const currencyInput = listEl.querySelector('.goal-contrib-currency[data-goal="' + name + '"]');
           const dateInput = listEl.querySelector('.goal-contrib-date[data-goal="' + name + '"]');
           const typeInput = listEl.querySelector('.goal-contrib-type[data-goal="' + name + '"]');
           const noteInput = listEl.querySelector('.goal-contrib-note[data-goal="' + name + '"]');
           const amount = parseFloat(amountInput.value);
+          const currency = currencyInput.value;
           const date = dateInput.value;
           const expenseType = typeInput.value;
           const note = noteInput.value.trim();
@@ -1203,6 +1400,7 @@
                 type: 'goal_contribute',
                 name: name,
                 amount: amount,
+                currency: currency,
                 date: date,
                 expenseType: expenseType,
                 note: note,
@@ -1268,20 +1466,9 @@
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
       const userId = getUserId();
-      const [debtsRes, paymentsRes] = await Promise.all([
-        fetch(BACKEND_URL + '?resource=debts&userId=' + userId),
-        fetch(BACKEND_URL + '?resource=debtPayments&userId=' + userId)
-      ]);
-      const debtsData = await debtsRes.json();
-      const paymentsData = await paymentsRes.json();
-      const debts = debtsData.debts || [];
-      const allPayments = paymentsData.debtPayments || [];
-
-      debts.forEach(d => {
-        d.payments = allPayments
-          .filter(p => p.debtName === d.name)
-          .map(p => ({ amount: p.amount, date: p.date, expenseType: p.expenseType, note: p.note }));
-      });
+      const res = await fetch(BACKEND_URL + '?resource=debts&userId=' + userId);
+      const data = await res.json();
+      const debts = data.debts || [];
 
       if (debts.length === 0) {
         listEl.innerHTML = '<div class="empty-note">No debts tracked — add one above</div>';
@@ -1301,7 +1488,7 @@
         const historyHtml = payments.length
           ? payments.map(p =>
               '<div class="day-entry"><span>' + new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-              (p.expenseType ? ' · ' + p.expenseType : '') + (p.note ? ' — ' + p.note : '') + '</span><span class="amt">$' + p.amount.toFixed(2) + '</span></div>'
+              (p.expenseType ? ' · ' + p.expenseType : '') + (p.note ? ' — ' + p.note : '') + '</span><span class="amt">' + entryAmountLabel(p) + '</span></div>'
             ).join('')
           : '<div class="empty-note">No payments logged yet</div>';
 
@@ -1309,30 +1496,90 @@
           ? 'Taken ' + new Date(d.dateTaken).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : '';
 
-        return '<div class="goal-card">' +
+        return '<div class="goal-card" data-debt-card="' + d.name + '">' +
           '<div class="goal-card-top debt-card-top">' +
           '<span class="name" data-debt-toggle="' + d.name + '"><span class="chevron">▸</span>' + d.name + (cleared ? ' ✓' : '') +
           ' <span style="font-weight:400;color:var(--ink-soft);font-size:11px">(' + payments.length + ')</span></span>' +
-          '<button type="button" class="goal-delete-btn" data-debt="' + d.name + '" title="Delete debt">×</button></div>' +
+          '<span><button type="button" class="debt-edit-btn" data-debt="' + d.name + '" title="Edit debt">✎</button>' +
+          '<button type="button" class="goal-delete-btn" data-debt="' + d.name + '" title="Delete debt">×</button></span></div>' +
+          '<div class="view-mode-fields" data-debt-view="' + d.name + '">' +
           (dateTakenLabel ? '<div class="debt-date-taken">' + dateTakenLabel + '</div>' : '') +
           '<div class="nums' + (cleared ? ' cleared' : '') + '" style="margin-bottom:8px">' + (cleared ? 'Cleared' : '$' + remaining.toFixed(2) + ' left') + '</div>' +
           '<div class="goal-bar-track"><div class="goal-bar-fill debt-bar-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="debt-payment-form">' +
+          '</div>' +
+          '<div class="edit-panel" data-debt-edit="' + d.name + '">' +
+          '<input type="text" class="edit-name" value="' + d.name + '" placeholder="Debt name">' +
+          '<input type="number" step="0.01" min="0" class="edit-target" value="' + d.total + '" placeholder="Total owed">' +
+          '<input type="date" class="edit-date" value="' + (d.dateTaken || '') + '">' +
+          '<div class="edit-actions">' +
+          '<button type="button" class="edit-save-btn" data-debt="' + d.name + '">Save</button>' +
+          '<button type="button" class="edit-cancel-btn" data-debt="' + d.name + '">Cancel</button>' +
+          '</div></div>' +
+          '<div class="debt-payment-form" data-debt-view2="' + d.name + '">' +
           '<div class="debt-payment-row1">' +
           '<input type="number" step="0.01" min="0" placeholder="Amount" class="debt-pay-amount" data-debt="' + d.name + '">' +
-          '<input type="date" class="debt-pay-date" data-debt="' + d.name + '" value="' + today + '">' +
+          '<select class="debt-pay-currency currency-mini" data-debt="' + d.name + '"><option value="USD">$</option><option value="KHR">៛</option></select>' +
           '</div>' +
-          '<div class="debt-payment-row2">' +
-          '<select class="debt-pay-type" data-debt="' + d.name + '">' +
+          '<div class="debt-payment-row1">' +
+          '<input type="date" class="debt-pay-date" data-debt="' + d.name + '" value="' + today + '">' +
+          '<select class="debt-pay-type type-mini" data-debt="' + d.name + '">' +
           typeOptions.map(t => '<option value="' + t + '">' + t + '</option>').join('') +
           '</select>' +
-          '<button type="button" class="debt-pay-btn" data-debt="' + d.name + '">Log payment</button>' +
           '</div>' +
+          '<div class="debt-payment-row2">' +
           '<input type="text" class="debt-pay-note" data-debt="' + d.name + '" placeholder="Note (optional)">' +
+          '<button type="button" class="debt-pay-btn type-mini" data-debt="' + d.name + '">Log</button>' +
+          '</div>' +
           '</div>' +
           '<div class="debt-history" data-debt-history="' + d.name + '">' + historyHtml + '</div>' +
           '</div>';
       }).join('');
+
+      listEl.querySelectorAll('.debt-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.debt;
+          const card = listEl.querySelector('[data-debt-card="' + name + '"]');
+          card.querySelector('[data-debt-view="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-debt-view2="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-debt-history="' + name + '"]').style.display = 'none';
+          card.querySelector('[data-debt-edit="' + name + '"]').classList.add('active');
+        });
+      });
+
+      listEl.querySelectorAll('.edit-cancel-btn[data-debt]').forEach(btn => {
+        btn.addEventListener('click', () => loadDebts());
+      });
+
+      listEl.querySelectorAll('.edit-save-btn[data-debt]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const oldName = btn.dataset.debt;
+          const panel = listEl.querySelector('[data-debt-edit="' + oldName + '"]');
+          const newName = panel.querySelector('.edit-name').value.trim();
+          const newTotal = parseFloat(panel.querySelector('.edit-target').value);
+          const newDate = panel.querySelector('.edit-date').value;
+          if (!newName || !newTotal || newTotal <= 0) return;
+
+          btn.disabled = true;
+          try {
+            await fetch(BACKEND_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                type: 'debt_edit',
+                oldName: oldName,
+                name: newName,
+                total: newTotal,
+                dateTaken: newDate,
+                userId: getUserId(),
+                initData: tg ? tg.initData : ''
+              })
+            });
+            loadDebts();
+          } catch (err) {
+            btn.disabled = false;
+          }
+        });
+      });
 
       listEl.querySelectorAll('[data-debt-toggle]').forEach(nameEl => {
         nameEl.addEventListener('click', () => {
@@ -1347,10 +1594,12 @@
         btn.addEventListener('click', async () => {
           const name = btn.dataset.debt;
           const amountInput = listEl.querySelector('.debt-pay-amount[data-debt="' + name + '"]');
+          const currencyInput = listEl.querySelector('.debt-pay-currency[data-debt="' + name + '"]');
           const dateInput = listEl.querySelector('.debt-pay-date[data-debt="' + name + '"]');
           const typeInput = listEl.querySelector('.debt-pay-type[data-debt="' + name + '"]');
           const noteInput = listEl.querySelector('.debt-pay-note[data-debt="' + name + '"]');
           const amount = parseFloat(amountInput.value);
+          const currency = currencyInput.value;
           const date = dateInput.value;
           const expenseType = typeInput.value;
           const note = noteInput.value.trim();
@@ -1365,6 +1614,7 @@
                 type: 'debt_payment',
                 name: name,
                 amount: amount,
+                currency: currency,
                 date: date,
                 expenseType: expenseType,
                 note: note,
@@ -1447,6 +1697,25 @@
     }
   });
 
+  let selectedCurrency = 'USD';
+  const amountInput = document.getElementById('amount');
+  const currencySelect = document.getElementById('currency-select');
+
+  function applyCurrencyUI(currency) {
+    if (currency === 'KHR') {
+      amountInput.step = '1';
+      amountInput.placeholder = '0';
+    } else {
+      amountInput.step = '0.01';
+      amountInput.placeholder = '0.00';
+    }
+  }
+
+  currencySelect.addEventListener('change', () => {
+    selectedCurrency = currencySelect.value;
+    applyCurrencyUI(selectedCurrency);
+  });
+
   let selectedCategory = null;
   document.querySelectorAll('#categories .cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1493,6 +1762,7 @@
 
     const payload = {
       amount: amount,
+      currency: selectedCurrency,
       category: selectedCategory,
       expenseType: selectedExpenseType,
       date: document.getElementById('date').value,
@@ -1519,6 +1789,8 @@
       statusEl.textContent = 'Saved ✓';
       form.reset();
       selectedCategory = null;
+      selectedCurrency = 'USD';
+      applyCurrencyUI('USD');
       document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
       dateInput.valueAsDate = new Date();
 
