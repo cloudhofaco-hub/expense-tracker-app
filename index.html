@@ -820,6 +820,20 @@
 
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbytwQbZdmNzOYcKcv6JkRfuBNAAKltXhEz2NcIR5xXchdh01ZbFZW4HbA0fYK9UsklsMQ/exec';
 
+  // Fetch with a timeout so a slow/cold Apps Script backend fails fast with
+  // a clear retry message instead of leaving a tab stuck on "Loading...".
+  function fetchWithTimeout(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || 12000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const opts = Object.assign({}, options, { signal: controller.signal });
+    return fetch(url, opts).finally(() => clearTimeout(timer));
+  }
+
+  function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   // Tab switching
   const pageTitle = document.getElementById('page-title');
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -894,7 +908,7 @@
     const input = document.getElementById('exchange-rate-input');
     try {
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=settings&userId=' + userId);
+      const res = await fetchWithTimeout(BACKEND_URL + '?resource=settings&userId=' + userId);
       const data = await res.json();
       if (data.exchangeRate) {
         EXCHANGE_RATE = Number(data.exchangeRate);
@@ -916,7 +930,7 @@
     statusEl.classList.remove('error');
     statusEl.textContent = 'Saving...';
     try {
-      await fetch(BACKEND_URL, {
+      await fetchWithTimeout(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
@@ -925,7 +939,7 @@
           userId: getUserId(),
           initData: tg ? tg.initData : ''
         })
-      });
+      }, 20000);
       statusEl.textContent = 'Saved ✓';
     } catch (err) {
       statusEl.textContent = 'Could not save, try again';
@@ -934,8 +948,11 @@
   });
 
   let summaryMonthEntries = [];
+  let summaryLoading = false;
 
   async function loadSummary() {
+    if (summaryLoading) return; // ignore duplicate taps while a load is already in flight
+    summaryLoading = true;
     const totalEl = document.getElementById('summary-total');
     const catsEl = document.getElementById('summary-categories');
     totalEl.textContent = 'Loading...';
@@ -946,20 +963,20 @@
     try {
       let entries, budgets = {};
       const userId = getUserId();
+      const now = new Date();
+      const monthStart = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+      const monthEnd = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
       const [entriesRes, budgetsRes] = await Promise.all([
-        fetch(BACKEND_URL + '?userId=' + userId),
-        fetch(BACKEND_URL + '?resource=budgets&userId=' + userId)
+        fetchWithTimeout(BACKEND_URL + '?userId=' + userId + '&start=' + monthStart + '&end=' + monthEnd),
+        fetchWithTimeout(BACKEND_URL + '?resource=budgets&userId=' + userId)
       ]);
       const data = await entriesRes.json();
       const budgetData = await budgetsRes.json();
       entries = data.entries || [];
       (budgetData.budgets || []).forEach(b => { budgets[b.category] = b.limit; });
 
-      const now = new Date();
-      const thisMonth = entries.filter(en => {
-        const d = new Date(en.date);
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-      });
+      // Backend already scoped this request to the current month.
+      const thisMonth = entries;
       summaryMonthEntries = thisMonth;
 
       const total = thisMonth.reduce((sum, en) => sum + toUSD(en.amount || 0, en.currency || 'USD'), 0);
@@ -997,7 +1014,9 @@
       });
     } catch (err) {
       totalEl.textContent = '$0.00';
-      catsEl.innerHTML = '<div class="empty-note">Could not load data</div>';
+      catsEl.innerHTML = '<div class="empty-note">Could not load data — tap Summary again to retry</div>';
+    } finally {
+      summaryLoading = false;
     }
   }
 
@@ -1028,7 +1047,7 @@
     try {
       const existing = {};
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=budgets&userId=' + userId);
+      const res = await fetchWithTimeout(BACKEND_URL + '?resource=budgets&userId=' + userId);
       const data = await res.json();
       (data.budgets || []).forEach(b => { existing[b.category] = b.limit; });
 
@@ -1053,7 +1072,7 @@
       for (const input of inputs) {
         const limit = parseFloat(input.value);
         if (!limit || limit <= 0) continue;
-        await fetch(BACKEND_URL, {
+        await fetchWithTimeout(BACKEND_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
@@ -1063,7 +1082,7 @@
             userId: userId,
             initData: tg ? tg.initData : ''
           })
-        });
+        }, 20000);
       }
       statusEl.textContent = 'Saved ✓';
     } catch (err) {
@@ -1075,43 +1094,89 @@
   let calendarEntries = [];
   let calMode = 'month';
   let calRefDate = new Date();
+  let calendarLoading = false;
+  const calendarCache = {}; // rangeKey -> entries[], reset each time the Calendar tab is opened
   const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  // Only ask the backend for the date range the current view actually
+  // needs (a week / a month / a year), instead of the entire expense
+  // history — and cache each range for the rest of this session so
+  // flipping back and forth doesn't refetch it.
+  function calRange(mode, refDate) {
+    if (mode === 'week') {
+      const start = new Date(refDate);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      return { start, end, key: 'w:' + ymd(start) };
+    } else if (mode === 'year') {
+      const y = refDate.getFullYear();
+      return { start: new Date(y, 0, 1), end: new Date(y, 11, 31), key: 'y:' + y };
+    }
+    const y = refDate.getFullYear(), m = refDate.getMonth();
+    return { start: new Date(y, m, 1), end: new Date(y, m + 1, 0), key: 'm:' + y + '-' + m };
+  }
+
+  async function ensureCalendarRangeLoaded() {
+    const { start, end, key } = calRange(calMode, calRefDate);
+    if (calendarCache[key]) {
+      calendarEntries = calendarCache[key];
+      return;
+    }
+    if (calendarLoading) return;
+    calendarLoading = true;
+    document.getElementById('cal-body').innerHTML = '<div class="empty-note">Loading...</div>';
+    try {
+      const userId = getUserId();
+      const res = await fetchWithTimeout(BACKEND_URL + '?userId=' + userId + '&start=' + ymd(start) + '&end=' + ymd(end));
+      const data = await res.json();
+      calendarEntries = data.entries || [];
+      calendarCache[key] = calendarEntries;
+    } catch (err) {
+      calendarEntries = [];
+      document.getElementById('cal-body').innerHTML = '<div class="empty-note">Could not load data — try again</div>';
+      throw err;
+    } finally {
+      calendarLoading = false;
+    }
+  }
+
   async function loadCalendar() {
     calRefDate = new Date();
-    document.getElementById('cal-body').innerHTML = '<div class="empty-note">Loading...</div>';
+    Object.keys(calendarCache).forEach(k => delete calendarCache[k]); // fresh data each time the tab opens
     document.getElementById('cal-day-entries').innerHTML = '';
     document.getElementById('cal-day-label').textContent = 'Tap a day to see entries';
 
     try {
-      const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?userId=' + userId);
-      const data = await res.json();
-      calendarEntries = data.entries || [];
+      await ensureCalendarRangeLoaded();
       renderCalendar();
-    } catch (err) {
-      document.getElementById('cal-body').innerHTML = '<div class="empty-note">Could not load data</div>';
-    }
+    } catch (err) { /* message already shown by ensureCalendarRangeLoaded */ }
   }
 
   document.querySelectorAll('.cal-subtab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       document.querySelectorAll('.cal-subtab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       calMode = btn.dataset.mode;
-      renderCalendar();
+      try {
+        await ensureCalendarRangeLoaded();
+        renderCalendar();
+      } catch (err) { /* message already shown */ }
     });
   });
 
   document.getElementById('cal-prev').addEventListener('click', () => { navigateCal(-1); });
   document.getElementById('cal-next').addEventListener('click', () => { navigateCal(1); });
 
-  function navigateCal(dir) {
+  async function navigateCal(dir) {
     if (calMode === 'week') calRefDate.setDate(calRefDate.getDate() + dir * 7);
     else if (calMode === 'month') calRefDate.setMonth(calRefDate.getMonth() + dir);
     else calRefDate.setFullYear(calRefDate.getFullYear() + dir);
-    renderCalendar();
+    try {
+      await ensureCalendarRangeLoaded();
+      renderCalendar();
+    } catch (err) { /* message already shown */ }
   }
 
   function entriesOnDate(d) {
@@ -1199,12 +1264,15 @@
       html += '</div>';
       body.innerHTML = html;
       body.querySelectorAll('.cal-year-cell').forEach(cell => {
-        cell.addEventListener('click', () => {
+        cell.addEventListener('click', async () => {
           calRefDate = new Date(y, parseInt(cell.dataset.month, 10), 1);
           calMode = 'month';
           document.querySelectorAll('.cal-subtab-btn').forEach(b => b.classList.remove('active'));
           document.querySelector('.cal-subtab-btn[data-mode="month"]').classList.add('active');
-          renderCalendar();
+          try {
+            await ensureCalendarRangeLoaded();
+            renderCalendar();
+          } catch (err) { /* message already shown */ }
         });
       });
     }
@@ -1226,12 +1294,16 @@
     ).join('');
   }
 
+  let goalsLoading = false;
+
   async function loadGoals() {
+    if (goalsLoading) return;
+    goalsLoading = true;
     const listEl = document.getElementById('goals-list');
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=goals&userId=' + userId);
+      const res = await fetchWithTimeout(BACKEND_URL + '?resource=goals&userId=' + userId);
       const data = await res.json();
       const goals = data.goals || [];
 
@@ -1325,7 +1397,7 @@
 
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1337,7 +1409,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadGoals();
           } catch (err) {
             btn.disabled = false;
@@ -1359,7 +1431,7 @@
           if (!confirm('Delete "' + btn.dataset.goal + '"? This can\'t be undone.')) return;
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1368,7 +1440,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadGoals();
           } catch (err) {
             btn.disabled = false;
@@ -1393,7 +1465,7 @@
 
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1407,7 +1479,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadGoals();
           } catch (err) {
             btn.disabled = false;
@@ -1415,7 +1487,9 @@
         });
       });
     } catch (err) {
-      listEl.innerHTML = '<div class="empty-note">Could not load goals</div>';
+      listEl.innerHTML = '<div class="empty-note">Could not load goals — tap Goals again to retry</div>';
+    } finally {
+      goalsLoading = false;
     }
   }
 
@@ -1439,7 +1513,7 @@
     statusEl.classList.remove('error');
 
     try {
-      await fetch(BACKEND_URL, {
+      await fetchWithTimeout(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
@@ -1450,7 +1524,7 @@
           userId: getUserId(),
           initData: tg ? tg.initData : ''
         })
-      });
+      }, 20000);
       nameInput.value = '';
       targetInput.value = '';
       statusEl.textContent = 'Goal added ✓';
@@ -1461,12 +1535,16 @@
     }
   });
 
+  let debtsLoading = false;
+
   async function loadDebts() {
+    if (debtsLoading) return;
+    debtsLoading = true;
     const listEl = document.getElementById('debts-list');
     listEl.innerHTML = '<div class="empty-note">Loading...</div>';
     try {
       const userId = getUserId();
-      const res = await fetch(BACKEND_URL + '?resource=debts&userId=' + userId);
+      const res = await fetchWithTimeout(BACKEND_URL + '?resource=debts&userId=' + userId);
       const data = await res.json();
       const debts = data.debts || [];
 
@@ -1561,7 +1639,7 @@
 
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1573,7 +1651,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadDebts();
           } catch (err) {
             btn.disabled = false;
@@ -1607,7 +1685,7 @@
 
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1621,7 +1699,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadDebts();
           } catch (err) {
             btn.disabled = false;
@@ -1634,7 +1712,7 @@
           if (!confirm('Delete "' + btn.dataset.debt + '"? This can\'t be undone.')) return;
           btn.disabled = true;
           try {
-            await fetch(BACKEND_URL, {
+            await fetchWithTimeout(BACKEND_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({
@@ -1643,7 +1721,7 @@
                 userId: getUserId(),
                 initData: tg ? tg.initData : ''
               })
-            });
+            }, 20000);
             loadDebts();
           } catch (err) {
             btn.disabled = false;
@@ -1651,7 +1729,9 @@
         });
       });
     } catch (err) {
-      listEl.innerHTML = '<div class="empty-note">Could not load debts</div>';
+      listEl.innerHTML = '<div class="empty-note">Could not load debts — tap Debts again to retry</div>';
+    } finally {
+      debtsLoading = false;
     }
   }
 
@@ -1675,7 +1755,7 @@
     statusEl.classList.remove('error');
 
     try {
-      await fetch(BACKEND_URL, {
+      await fetchWithTimeout(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
@@ -1686,7 +1766,7 @@
           userId: getUserId(),
           initData: tg ? tg.initData : ''
         })
-      });
+      }, 20000);
       nameInput.value = '';
       totalInput.value = '';
       statusEl.textContent = 'Debt added ✓';
@@ -1779,11 +1859,11 @@
     submitBtn.textContent = 'Logging...';
 
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await fetchWithTimeout(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
-      });
+      }, 20000);
       if (!res.ok) throw new Error('Request failed');
 
       statusEl.textContent = 'Saved ✓';
